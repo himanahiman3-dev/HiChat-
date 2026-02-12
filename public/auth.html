@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HiChat — Вход / Регистрация</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <h1 class="logo-text">HiChat</h1>
+
+      <!-- Логин -->
+      <form id="loginForm" class="auth-form">
+        <h2>Вход</h2>
+        <input type="email" id="loginEmail" placeholder="Email" required>
+        <input type="password" id="loginPassword" placeholder="Пароль" required>
+        <button type="submit" class="btn-gradient">Войти</button>
+        <p class="error-text" id="loginError"></p>
+      </form>
+
+      <div class="separator"><span>или</span></div>
+
+      <!-- Регистрация -->
+      <form id="registerForm" class="auth-form" enctype="multipart/form-data">
+        <h2>Регистрация</h2>
+        <input type="text" id="regName" placeholder="Имя пользователя" required>
+        <input type="email" id="regEmail" placeholder="Email" required>
+        <input type="password" id="regPassword" placeholder="Пароль" required>
+
+        <div class="avatar-upload">
+          <label for="regAvatar" class="file-label">📸 Аватар (необязательно)</label>
+          <input type="file" id="regAvatar" accept="image/*">
+          <div id="avatarPreview" class="avatar-preview hidden">
+            <img src="" alt="preview">
+          </div>
+        </div>
+
+        <button type="submit" class="btn-gradient">Зарегистрироваться</button>
+        <p class="error-text" id="registerError"></p>
+      </form>
+    </div>
+  </div>
+
+  <script src="auth.js"></script>
+</body>
+</html>

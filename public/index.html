@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HiChat — неоновый мессенджер</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="top">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h2 id="logo" class="logo">HiChat</h2>
+          <button id="settingsBtn" class="btn-icon" title="Настройки">⚙️</button>
+        </div>
+        <div id="currentUserInfo" class="current-user hidden">
+          <img id="myAvatar" src="" class="avatar-small" alt="avatar" />
+          <div id="myName"></div>
+        </div>
+      </div>
+
+      <!-- Блок создания нового чата -->
+      <div class="new-chat-block">
+        <input id="newChatUsername" placeholder="Начать новый чат — введите юзернейм" />
+        <button id="startChatBtn">Начать чат</button>
+      </div>
+
+      <!-- Список чатов -->
+      <div id="chatsContainer" class="chats-list"></div>
+
+      <div class="sidebar-bottom">
+        <button id="logoutBtn" class="btn-ghost hidden">Выйти</button>
+      </div>
+    </div>
+
+    <!-- CHAT AREA -->
+    <div class="chat-area">
+      <div id="chatHeader" class="chat-header hidden">
+        <div style="position:relative;">
+          <img id="chatAvatar" class="avatar-small" src="" alt="avatar" />
+          <span id="chatOnlineDot" class="online-dot hidden"></span>
+        </div>
+        <div>
+          <div id="chatName" style="font-weight:700; cursor:pointer;">&nbsp;</div>
+          <small id="chatSub" style="opacity:.7"></small>
+        </div>
+      </div>
+
+      <!-- Сообщения -->
+      <div id="messages" class="messages"></div>
+
+      <!-- Панель ввода -->
+      <div class="input-area">
+        <input type="text" id="messageInput" placeholder="Введите сообщение..." />
+        <button id="sendBtn">Отправить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== МОДАЛЬНОЕ ОКНО НАСТРОЕК ========== -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-content">
+      <h2 style="margin-bottom: 20px;">Настройки профиля</h2>
+      <form id="settingsForm" enctype="multipart/form-data">
+        <input type="text" id="settingsUsername" placeholder="Имя пользователя" required />
+        <textarea id="settingsBio" placeholder="О себе (био)" rows="3"></textarea>
+
+        <div class="avatar-upload">
+          <label for="settingsAvatar" class="file-label">📸 Сменить аватар</label>
+          <input type="file" id="settingsAvatar" accept="image/*" />
+          <div id="settingsAvatarPreview" class="avatar-preview hidden">
+            <img src="" alt="preview" />
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 16px;">
+          <button type="submit" class="btn-gradient">Сохранить</button>
+          <button type="button" id="closeSettingsBtn" class="btn-ghost">Отмена</button>
+        </div>
+        <p id="settingsError" class="error-text"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========== МОДАЛЬНОЕ ОКНО ПРОСМОТРА ПРОФИЛЯ ========== -->
+  <div id="profileModal" class="modal hidden">
+    <div class="modal-content profile-view">
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <img id="profileAvatar" class="avatar-large" src="" alt="avatar" />
+        <div>
+          <h2 id="profileUsername"></h2>
+          <span id="profileOnline" class="online-status"></span>
+        </div>
+      </div>
+      <div id="profileBio" class="profile-bio"></div>
+      <button id="closeProfileBtn" class="btn-ghost" style="margin-top: 20px;">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Подключаем Socket.IO и основной скрипт -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

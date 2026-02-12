@@ -1,0 +1,155 @@
+{
+  "users": [
+    {
+      "id": "mljt0zslca9c",
+      "email": "abusnej19902@gmail.com",
+      "username": "FANROROCHAT",
+      "password": "$2b$10$QsymUVU4EV7UQOyutOVSXudXOPbGGEEKDjkIND9MF4aejrno3EytW",
+      "avatar": "/uploads/mljt0zr0-nci2ov.jpg",
+      "online": true
+    },
+    {
+      "id": "mljt249yfn3r",
+      "email": "sigma@gmail.com",
+      "username": "sigma",
+      "password": "$2b$10$3KzXfdWV0q8sgJvM5Q25u.N5ibnF9rNO/f3k7SXV64EYsQmMsq4WG",
+      "avatar": "/default-avatar.png",
+      "online": true,
+      "bio": "сигма сигма БООООЙ"
+    },
+    {
+      "id": "mljtlu83awka",
+      "email": "TEST@gmail.com",
+      "username": "playbot",
+      "password": "$2b$10$XZQ69amqLDmNq4oTbXm8AOF/sg7z21m4ss9486ukOKENGqhpi3Cl6",
+      "avatar": "/uploads/mljtmr69-e2yk1u.gif",
+      "online": false,
+      "bio": "FFFF"
+    }
+  ],
+  "chats": [
+    {
+      "id": "mljt2cpq8qe8",
+      "members": [
+        "mljt0zslca9c",
+        "mljt249yfn3r"
+      ],
+      "unread": {
+        "mljt0zslca9c": 0,
+        "mljt249yfn3r": 0
+      }
+    },
+    {
+      "id": "mljtm4cx148z",
+      "members": [
+        "mljtlu83awka",
+        "mljt249yfn3r"
+      ],
+      "unread": {
+        "mljtlu83awka": 0,
+        "mljt249yfn3r": 3
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "mljt2k7zt3l",
+      "chatId": "mljt2cpq8qe8",
+      "userId": "mljt0zslca9c",
+      "name": "FANROROCHAT",
+      "avatar": "/uploads/mljt0zr0-nci2ov.jpg",
+      "text": "ааа",
+      "ts": 1770921724895
+    },
+    {
+      "id": "mljt2l7732j",
+      "chatId": "mljt2cpq8qe8",
+      "userId": "mljt0zslca9c",
+      "name": "FANROROCHAT",
+      "avatar": "/uploads/mljt0zr0-nci2ov.jpg",
+      "text": "б",
+      "ts": 1770921726163
+    },
+    {
+      "id": "mljt2mdtqu4",
+      "chatId": "mljt2cpq8qe8",
+      "userId": "mljt0zslca9c",
+      "name": "FANROROCHAT",
+      "avatar": "/uploads/mljt0zr0-nci2ov.jpg",
+      "text": "ах ащи",
+      "ts": 1770921727697
+    },
+    {
+      "id": "mljt2nzvdt4",
+      "chatId": "mljt2cpq8qe8",
+      "userId": "mljt249yfn3r",
+      "name": "sigma",
+      "avatar": "/default-avatar.png",
+      "text": "АХАХВАХ",
+      "ts": 1770921729787
+    },
+    {
+      "id": "mljt2qloej5",
+      "chatId": "mljt2cpq8qe8",
+      "userId": "mljt249yfn3r",
+      "name": "sigma",
+      "avatar": "/default-avatar.png",
+      "text": "ТЫ КОНЧЕНЫЙ??",
+      "ts": 1770921733164
+    },
+    {
+      "id": "mljtm6rnbu5",
+      "chatId": "mljtm4cx148z",
+      "userId": "mljtlu83awka",
+      "name": "playbot",
+      "avatar": "/default-avatar.png",
+      "text": "ВОУ",
+      "ts": 1770922640579
+    },
+    {
+      "id": "mljtmj7rkr5",
+      "chatId": "mljtm4cx148z",
+      "userId": "mljtlu83awka",
+      "name": "playbot",
+      "avatar": "/default-avatar.png",
+      "text": "ЕЕЕЕ!!",
+      "ts": 1770922656711
+    },
+    {
+      "id": "mljtmkd5wek",
+      "chatId": "mljtm4cx148z",
+      "userId": "mljtlu83awka",
+      "name": "playbot",
+      "avatar": "/default-avatar.png",
+      "text": "работает",
+      "ts": 1770922658201
+    },
+    {
+      "id": "mljtn34v5re",
+      "chatId": "mljtm4cx148z",
+      "userId": "mljtlu83awka",
+      "name": "playbot",
+      "avatar": "/uploads/mljtmr69-e2yk1u.gif",
+      "text": "а",
+      "ts": 1770922682527
+    },
+    {
+      "id": "mljtn4c7qtq",
+      "chatId": "mljtm4cx148z",
+      "userId": "mljtlu83awka",
+      "name": "playbot",
+      "avatar": "/uploads/mljtmr69-e2yk1u.gif",
+      "text": "ура",
+      "ts": 1770922684087
+    },
+    {
+      "id": "mljtn671o0q",
+      "chatId": "mljtm4cx148z",
+      "userId": "mljtlu83awka",
+      "name": "playbot",
+      "avatar": "/uploads/mljtmr69-e2yk1u.gif",
+      "text": "ава сменилась",
+      "ts": 1770922686493
+    }
+  ]
+}
