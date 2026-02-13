@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="app">
-    <!-- SIDEBAR -->
+    <!-- ========== SIDEBAR ========== -->
     <div class="sidebar">
       <div class="top">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -30,28 +30,36 @@
       <!-- Список чатов -->
       <div id="chatsContainer" class="chats-list"></div>
 
+      <!-- Кнопка выхода -->
       <div class="sidebar-bottom">
         <button id="logoutBtn" class="btn-ghost hidden">Выйти</button>
       </div>
     </div>
 
-    <!-- CHAT AREA -->
+    <!-- ========== ОСНОВНАЯ ОБЛАСТЬ ЧАТА ========== -->
     <div class="chat-area">
+      <!-- Шапка чата (имя, аватар, поиск) -->
       <div id="chatHeader" class="chat-header hidden">
         <div style="position:relative;">
           <img id="chatAvatar" class="avatar-small" src="" alt="avatar" />
           <span id="chatOnlineDot" class="online-dot hidden"></span>
         </div>
-        <div>
+        <div style="flex:1;">
           <div id="chatName" style="font-weight:700; cursor:pointer;">&nbsp;</div>
           <small id="chatSub" style="opacity:.7"></small>
         </div>
+        <!-- Поиск по сообщениям -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button id="searchToggleBtn" class="btn-icon" title="Поиск в чате">🔍</button>
+          <input type="text" id="searchInput" placeholder="Поиск..." class="hidden" 
+                 style="padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.3); color: white; width: 160px;">
+        </div>
       </div>
 
-      <!-- Сообщения -->
+      <!-- Контейнер сообщений -->
       <div id="messages" class="messages"></div>
 
-      <!-- Панель ввода -->
+      <!-- Поле ввода сообщения -->
       <div class="input-area">
         <input type="text" id="messageInput" placeholder="Введите сообщение..." />
         <button id="sendBtn">Отправить</button>
@@ -59,7 +67,7 @@
     </div>
   </div>
 
-  <!-- ========== МОДАЛЬНОЕ ОКНО НАСТРОЕК ========== -->
+  <!-- ========== МОДАЛЬНОЕ ОКНО НАСТРОЕК ПРОФИЛЯ ========== -->
   <div id="settingsModal" class="modal hidden">
     <div class="modal-content">
       <h2 style="margin-bottom: 20px;">Настройки профиля</h2>
@@ -81,6 +89,14 @@
         </div>
         <p id="settingsError" class="error-text"></p>
       </form>
+
+      <!-- Кнопка копирования ссылки на профиль -->
+      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05);">
+        <button id="copyProfileLinkBtn" class="btn-ghost" style="width:100%;">
+          🔗 Копировать ссылку на профиль
+        </button>
+        <p id="copyLinkMessage" class="error-text" style="color:#2fff8a; text-align:center;"></p>
+      </div>
     </div>
   </div>
 
@@ -99,7 +115,7 @@
     </div>
   </div>
 
-  <!-- Подключаем Socket.IO и основной скрипт -->
+  <!-- ========== ПОДКЛЮЧЕНИЕ СКРИПТОВ ========== -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
 </body>
