@@ -1,4 +1,4 @@
-// ==================== HiChat — клиент (ответы, поиск, дата-разделители) ====================
+// ==================== HiChat — ФИНАЛ: ЧАТЫ + ЗВОНКИ ====================
 let token = localStorage.getItem('hichat_token') || null;
 let currentUser = null;
 let socket = null;
@@ -6,7 +6,19 @@ let activeChatId = null;
 let activeChatOther = null;
 let chatsCache = {};
 
-// ---------- DOM элементы ----------
+// ---------- WebRTC звонки ----------
+let peerConnection = null;
+let localStream = null;
+let remoteStream = null;
+let currentCallId = null;
+let currentCallPeerId = null;
+let currentCallPeerName = "";
+let currentCallPeerAvatar = "";
+let callTimer = null;
+let callSeconds = 0;
+let isMuted = false;
+
+// DOM элементы (сохраняем все твои старые + добавляем новые для звонков)
 const messagesEl = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
@@ -24,7 +36,7 @@ const chatName = document.getElementById('chatName');
 const chatOnlineDot = document.getElementById('chatOnlineDot');
 const logo = document.getElementById('logo');
 
-// ---------- Модалка настроек ----------
+// Модалка настроек
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const settingsForm = document.getElementById('settingsForm');
@@ -36,7 +48,7 @@ const settingsPreviewImg = settingsAvatarPreview?.querySelector('img');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const settingsError = document.getElementById('settingsError');
 
-// ---------- Модалка профиля ----------
+// Модалка профиля
 const profileModal = document.getElementById('profileModal');
 const profileAvatar = document.getElementById('profileAvatar');
 const profileUsername = document.getElementById('profileUsername');
@@ -44,12 +56,27 @@ const profileBio = document.getElementById('profileBio');
 const profileOnline = document.getElementById('profileOnline');
 const closeProfileBtn = document.getElementById('closeProfileBtn');
 
-// ---------- ПОИСК (NEW) ----------
+// ---------- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ЗВОНКОВ ----------
+const incomingCallModal = document.getElementById('incomingCallModal');
+const incomingCallerAvatar = document.getElementById('incomingCallerAvatar');
+const incomingCallerName = document.getElementById('incomingCallerName');
+const acceptCallBtn = document.getElementById('acceptCallBtn');
+const rejectCallBtn = document.getElementById('rejectCallBtn');
+
+const activeCallModal = document.getElementById('activeCallModal');
+const activeCallAvatar = document.getElementById('activeCallAvatar');
+const activeCallName = document.getElementById('activeCallName');
+const callTimerEl = document.getElementById('callTimer');
+const muteMicBtn = document.getElementById('muteMicBtn');
+const endCallBtn = document.getElementById('endCallBtn');
+const muteStatus = document.getElementById('muteStatus');
+
+// Поиск
 const searchToggleBtn = document.getElementById('searchToggleBtn');
 const searchInput = document.getElementById('searchInput');
 
-// ---------- ОТВЕТЫ (NEW) ----------
-let replyingTo = null; // { id, text, username }
+// Ответы
+let replyingTo = null;
 
 // ==================== УТИЛИТЫ ====================
 function escapeHtml(s) {
@@ -136,7 +163,7 @@ function chatExistsInUI(chatId) {
   return !!chatsContainer.querySelector(`[data-chat-id="${chatId}"]`);
 }
 
-// ==================== ОТКРЫТИЕ ЧАТА ====================
+// ==================== ЧАТ ====================
 async function openChat(chatId, otherUser) {
   activeChatId = chatId;
   activeChatOther = otherUser;
@@ -151,14 +178,12 @@ async function openChat(chatId, otherUser) {
   const r = await fetch(`/chats/${chatId}/messages`, { headers: { Authorization: 'Bearer ' + token } });
   if (r.ok) {
     const msgs = await r.json();
-    // NEW: отрисовываем с дата-разделителями
     renderMessagesWithDividers(msgs);
     await loadChats();
   } else {
     messagesEl.innerHTML = '';
   }
   
-  // NEW: сброс ответа и поиска при открытии нового чата
   cancelReply();
   if (searchInput) {
     searchInput.value = '';
@@ -167,8 +192,6 @@ async function openChat(chatId, otherUser) {
   }
 }
 
-// ==================== ОТРИСОВКА СООБЩЕНИЙ (С ДАТАМИ И ОТВЕТАМИ) ====================
-// NEW: группировка по дням
 function renderMessagesWithDividers(msgs) {
   messagesEl.innerHTML = '';
   if (!msgs.length) return;
@@ -180,11 +203,8 @@ function renderMessagesWithDividers(msgs) {
       lastDate = msgDate;
       const divider = document.createElement('div');
       divider.className = 'date-divider';
-      
       let dateText = new Date(msg.ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-      // Замена "г." на пустоту, если нужно
       dateText = dateText.replace(' г.', '');
-      
       const span = document.createElement('span');
       span.innerText = dateText;
       divider.appendChild(span);
@@ -194,7 +214,6 @@ function renderMessagesWithDividers(msgs) {
   });
 }
 
-// NEW: отрисовка одного сообщения с кнопкой ответа и цитатой
 function renderMessage(msg) {
   const wrapper = document.createElement('div');
   wrapper.className = 'message';
@@ -208,7 +227,6 @@ function renderMessage(msg) {
   const body = document.createElement('div');
   body.className = 'msg-body';
 
-  // ----- ЦИТАТА (если это ответ) -----
   if (msg.replyTo) {
     const replyBlock = document.createElement('div');
     replyBlock.className = 'message-reply';
@@ -231,21 +249,18 @@ function renderMessage(msg) {
   body.appendChild(header);
   body.appendChild(text);
 
-  // ----- КНОПКА ОТВЕТА -----
   const replyBtn = document.createElement('button');
   replyBtn.className = 'reply-btn';
   replyBtn.innerHTML = '↩️';
   replyBtn.title = 'Ответить';
   replyBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    // Устанавливаем цитируемое сообщение
     replyingTo = {
       id: msg.id,
       text: msg.text,
       username: msg.name,
       userId: msg.userId
     };
-    // Показываем блок с ответом над полем ввода
     showReplyPreview(replyingTo);
   });
   header.appendChild(replyBtn);
@@ -256,9 +271,7 @@ function renderMessage(msg) {
   messagesEl.appendChild(wrapper);
 }
 
-// NEW: показать панель ответа над полем ввода
 function showReplyPreview(reply) {
-  // Удаляем старый превью, если есть
   const oldPreview = document.querySelector('.reply-preview');
   if (oldPreview) oldPreview.remove();
 
@@ -281,16 +294,13 @@ function showReplyPreview(reply) {
   document.getElementById('cancelReplyBtn').addEventListener('click', cancelReply);
 }
 
-// NEW: отмена ответа
 function cancelReply() {
   replyingTo = null;
   const preview = document.querySelector('.reply-preview');
   if (preview) preview.remove();
 }
 
-// ==================== ПОИСК ПО СООБЩЕНИЯМ (NEW) ====================
-let searchActive = false;
-
+// ==================== ПОИСК ====================
 searchToggleBtn?.addEventListener('click', () => {
   searchInput.classList.toggle('hidden');
   if (!searchInput.classList.contains('hidden')) {
@@ -322,7 +332,6 @@ searchInput?.addEventListener('input', function(e) {
     }
   });
 
-  // Прокрутка к первому совпадению
   if (firstMatch) {
     firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
@@ -332,14 +341,13 @@ function clearSearchHighlight() {
   document.querySelectorAll('.message.highlight').forEach(el => el.classList.remove('highlight'));
 }
 
-// ==================== ОТПРАВКА СООБЩЕНИЯ (с поддержкой ответов) ====================
+// ==================== ОТПРАВКА СООБЩЕНИЙ ====================
 sendBtn?.addEventListener('click', () => {
   const text = messageInput.value.trim();
   if (!text || !activeChatId) return;
   if (!socket || !socket.connected) { alert('Нет подключения. Обновите страницу.'); return; }
   
   const messageData = { chatId: activeChatId, text };
-  // Добавляем информацию об ответе, если есть
   if (replyingTo) {
     messageData.replyTo = {
       id: replyingTo.id,
@@ -351,7 +359,6 @@ sendBtn?.addEventListener('click', () => {
   
   socket.emit('chat message', messageData);
   messageInput.value = '';
-  // Сбрасываем ответ после отправки
   cancelReply();
 });
 
@@ -361,82 +368,6 @@ messageInput?.addEventListener('keydown', e => {
     sendBtn.click();
   }
 });
-
-// ==================== SOCKET.IO ====================
-function connectSocket() {
-  if (!token) return;
-  socket = io({ auth: { token } });
-
-  socket.on('connect_error', err => {
-    console.error('socket err', err.message);
-    if (err.message === 'Unauthorized') logout();
-  });
-
-  socket.on('chat created', chat => {
-    if (!chatExistsInUI(chat.id)) {
-      const uiChat = {
-        id: chat.id,
-        otherUser: chat.otherUser,
-        lastMessage: null,
-        unread: 0,
-        online: chat.otherUser.online
-      };
-      chatsCache[chat.id] = uiChat;
-      const node = renderChatItem(uiChat);
-      chatsContainer.prepend(node);
-    }
-  });
-
-  socket.on('chat message', msg => {
-    if (msg.chatId === activeChatId) {
-      // Добавляем одно сообщение с дата-разделителем, если нужно
-      // Просто перерисуем все сообщения заново, чтобы корректно обновить даты
-      fetch(`/chats/${activeChatId}/messages`, { headers: { Authorization: 'Bearer ' + token } })
-        .then(res => res.json())
-        .then(msgs => renderMessagesWithDividers(msgs));
-      loadChats();
-    } else {
-      loadChats();
-      chatsContainer.style.boxShadow = '0 0 18px rgba(0,224,255,0.06)';
-      setTimeout(() => chatsContainer.style.boxShadow = '', 700);
-    }
-  });
-
-  socket.on('unread update', u => {
-    const el = findChatElement(u.chatId);
-    if (el && el._meta) {
-      const badge = el._meta.unreadBadge;
-      badge.innerText = u.unread || '';
-      if (!u.unread) badge.classList.add('hidden');
-      else badge.classList.remove('hidden');
-    } else {
-      loadChats();
-    }
-  });
-
-  socket.on('presence', p => {
-    const items = chatsContainer.querySelectorAll('.chat-item');
-    items.forEach(it => {
-      const chatId = it.dataset.chatId;
-      const chat = chatsCache[chatId];
-      if (!chat) return;
-      if (chat.otherUser.id === p.userId) {
-        chat.otherUser.online = p.online;
-        if (it._meta && it._meta.onlineDot) {
-          if (p.online) it._meta.onlineDot.classList.remove('hidden');
-          else it._meta.onlineDot.classList.add('hidden');
-        } else {
-          loadChats();
-        }
-      }
-    });
-
-    if (activeChatOther && activeChatOther.id === p.userId) {
-      if (p.online) chatOnlineDot.classList.remove('hidden');
-      else chatOnlineDot.classList.add('hidden');
-    }
-  });
-}
 
 // ==================== НАЧАТЬ НОВЫЙ ЧАТ ====================
 startChatBtn?.addEventListener('click', async () => {
@@ -524,7 +455,7 @@ settingsForm?.addEventListener('submit', async (e) => {
   }
 });
 
-// ==================== ПРОСМОТР ПРОФИЛЯ ====================
+// ==================== ПРОСМОТР ПРОФИЛЯ (с кнопкой звонка) ====================
 function openProfile(userId) {
   fetch(`/users/${userId}`, {
     headers: { Authorization: 'Bearer ' + token }
@@ -536,6 +467,33 @@ function openProfile(userId) {
       profileBio.innerText = user.bio || 'Пользователь пока ничего не написал о себе.';
       profileOnline.innerText = user.online ? '● В сети' : '○ Не в сети';
       profileOnline.className = 'online-status ' + (user.online ? 'online' : 'offline');
+      
+      // Удаляем старую кнопку звонка, если есть
+      const oldBtn = document.getElementById('callUserBtn');
+      if (oldBtn) oldBtn.remove();
+      
+      // Добавляем кнопку звонка
+      const callBtn = document.createElement('button');
+      callBtn.id = 'callUserBtn';
+      callBtn.className = 'btn-gradient';
+      callBtn.style.marginTop = '16px';
+      callBtn.style.width = '100%';
+      callBtn.innerHTML = '📞 Позвонить';
+      
+      if (!user.online) {
+        callBtn.disabled = true;
+        callBtn.style.opacity = '0.5';
+        callBtn.style.cursor = 'not-allowed';
+        callBtn.title = 'Пользователь не в сети';
+      } else {
+        callBtn.addEventListener('click', () => {
+          profileModal.classList.add('hidden');
+          startCall(user.id, user.username, user.avatar);
+        });
+      }
+      
+      document.querySelector('.profile-view').appendChild(callBtn);
+      
       profileModal.classList.remove('hidden');
     })
     .catch(err => {
@@ -553,6 +511,395 @@ chatName?.addEventListener('click', () => {
     openProfile(activeChatOther.id);
   }
 });
+
+// ==================== WEBRTC ЗВОНКИ ====================
+const STUN_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]
+};
+
+// Запрос доступа к микрофону
+async function getLocalStream() {
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    return true;
+  } catch (err) {
+    console.error('Ошибка доступа к микрофону:', err);
+    alert('Не удалось получить доступ к микрофону. Проверьте разрешения.');
+    return false;
+  }
+}
+
+// Исходящий звонок
+async function startCall(targetUserId, targetUsername, targetAvatar) {
+  if (!socket || !socket.connected) {
+    alert('Нет подключения к серверу');
+    return;
+  }
+  
+  // Запрашиваем микрофон
+  const hasMic = await getLocalStream();
+  if (!hasMic) return;
+  
+  // Создаём новый Call ID
+  currentCallId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  currentCallPeerId = targetUserId;
+  currentCallPeerName = targetUsername;
+  currentCallPeerAvatar = targetAvatar;
+  
+  // Создаём PeerConnection
+  peerConnection = new RTCPeerConnection(STUN_SERVERS);
+  
+  // Добавляем аудиотреки в соединение
+  localStream.getTracks().forEach(track => {
+    peerConnection.addTrack(track, localStream);
+  });
+  
+  // Получаем удалённый поток
+  remoteStream = new MediaStream();
+  peerConnection.ontrack = (event) => {
+    event.streams[0].getTracks().forEach(track => {
+      remoteStream.addTrack(track);
+    });
+  };
+  
+  // ICE кандидаты
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      socket.emit('webrtc-ice-candidate', {
+        targetUserId,
+        candidate: event.candidate,
+        callId: currentCallId
+      });
+    }
+  };
+  
+  // Создаём предложение
+  try {
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    
+    socket.emit('webrtc-offer', {
+      targetUserId,
+      sdp: peerConnection.localDescription,
+      callId: currentCallId
+    });
+    
+    // Показываем окно активного звонка
+    showActiveCallModal(targetUsername, targetAvatar);
+    
+  } catch (err) {
+    console.error('Ошибка создания звонка:', err);
+    alert('Не удалось создать звонок');
+    endCall();
+  }
+}
+
+// Принять входящий звонок
+async function acceptCall() {
+  if (!peerConnection) return;
+  
+  try {
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    
+    socket.emit('webrtc-answer', {
+      targetUserId: currentCallPeerId,
+      sdp: peerConnection.localDescription,
+      callId: currentCallId
+    });
+    
+    // Скрываем модалку входящего звонка
+    incomingCallModal.classList.add('hidden');
+    
+    // Показываем активный звонок
+    showActiveCallModal(currentCallPeerName, currentCallPeerAvatar);
+    
+  } catch (err) {
+    console.error('Ошибка при ответе на звонок:', err);
+  }
+}
+
+// Отклонить входящий звонок
+function rejectCall() {
+  socket.emit('webrtc-call-reject', {
+    targetUserId: currentCallPeerId,
+    callId: currentCallId
+  });
+  
+  incomingCallModal.classList.add('hidden');
+  cleanupCall();
+}
+
+// Завершить звонок
+function endCall() {
+  socket.emit('webrtc-call-end', {
+    targetUserId: currentCallPeerId,
+    callId: currentCallId
+  });
+  
+  activeCallModal.classList.add('hidden');
+  cleanupCall();
+}
+
+// Очистка WebRTC
+function cleanupCall() {
+  if (callTimer) clearInterval(callTimer);
+  callTimer = null;
+  callSeconds = 0;
+  isMuted = false;
+  
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null;
+  }
+  
+  if (peerConnection) {
+    peerConnection.close();
+    peerConnection = null;
+  }
+  
+  remoteStream = null;
+  currentCallId = null;
+  currentCallPeerId = null;
+}
+
+// Показать окно активного звонка
+function showActiveCallModal(username, avatar) {
+  activeCallAvatar.src = avatarOrDefault(avatar);
+  activeCallName.innerText = username;
+  callSeconds = 0;
+  callTimerEl.innerText = '00:00';
+  
+  if (callTimer) clearInterval(callTimer);
+  callTimer = setInterval(() => {
+    callSeconds++;
+    const mins = Math.floor(callSeconds / 60);
+    const secs = callSeconds % 60;
+    callTimerEl.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }, 1000);
+  
+  activeCallModal.classList.remove('hidden');
+}
+
+// Переключение микрофона
+function toggleMute() {
+  if (!localStream) return;
+  
+  const audioTracks = localStream.getAudioTracks();
+  audioTracks.forEach(track => {
+    track.enabled = !track.enabled;
+  });
+  
+  isMuted = !isMuted;
+  
+  if (muteMicBtn) {
+    muteMicBtn.style.background = isMuted ? 'rgba(255,80,80,0.3)' : 'rgba(255,255,255,0.05)';
+    muteMicBtn.style.color = isMuted ? '#ff6b6b' : 'white';
+  }
+  
+  if (muteStatus) {
+    muteStatus.innerText = isMuted ? '🔇 Микрофон выключен' : '🎤 Микрофон включён';
+  }
+  
+  // Уведомляем собеседника о статусе микрофона
+  if (currentCallPeerId) {
+    socket.emit('webrtc-toggle-mute', {
+      targetUserId: currentCallPeerId,
+      muted: isMuted,
+      callId: currentCallId
+    });
+  }
+}
+
+// ==================== ОБРАБОТЧИКИ СОКЕТА ====================
+function connectSocket() {
+  if (!token) return;
+  socket = io({ auth: { token } });
+
+  socket.on('connect_error', err => {
+    console.error('socket err', err.message);
+    if (err.message === 'Unauthorized') logout();
+  });
+
+  socket.on('chat created', chat => {
+    if (!chatExistsInUI(chat.id)) {
+      const uiChat = {
+        id: chat.id,
+        otherUser: chat.otherUser,
+        lastMessage: null,
+        unread: 0,
+        online: chat.otherUser.online
+      };
+      chatsCache[chat.id] = uiChat;
+      const node = renderChatItem(uiChat);
+      chatsContainer.prepend(node);
+    }
+  });
+
+  socket.on('chat message', msg => {
+    if (msg.chatId === activeChatId) {
+      fetch(`/chats/${activeChatId}/messages`, { headers: { Authorization: 'Bearer ' + token } })
+        .then(res => res.json())
+        .then(msgs => renderMessagesWithDividers(msgs));
+      loadChats();
+    } else {
+      loadChats();
+      chatsContainer.style.boxShadow = '0 0 18px rgba(0,224,255,0.06)';
+      setTimeout(() => chatsContainer.style.boxShadow = '', 700);
+    }
+  });
+
+  socket.on('unread update', u => {
+    const el = findChatElement(u.chatId);
+    if (el && el._meta) {
+      const badge = el._meta.unreadBadge;
+      badge.innerText = u.unread || '';
+      if (!u.unread) badge.classList.add('hidden');
+      else badge.classList.remove('hidden');
+    } else {
+      loadChats();
+    }
+  });
+
+  socket.on('presence', p => {
+    const items = chatsContainer.querySelectorAll('.chat-item');
+    items.forEach(it => {
+      const chatId = it.dataset.chatId;
+      const chat = chatsCache[chatId];
+      if (!chat) return;
+      if (chat.otherUser.id === p.userId) {
+        chat.otherUser.online = p.online;
+        if (it._meta && it._meta.onlineDot) {
+          if (p.online) it._meta.onlineDot.classList.remove('hidden');
+          else it._meta.onlineDot.classList.add('hidden');
+        } else {
+          loadChats();
+        }
+      }
+    });
+
+    if (activeChatOther && activeChatOther.id === p.userId) {
+      if (p.online) chatOnlineDot.classList.remove('hidden');
+      else chatOnlineDot.classList.add('hidden');
+    }
+  });
+
+  // ==================== WEBRTC SIGNALING ====================
+  socket.on('webrtc-offer', async (data) => {
+    const { callerId, callerUsername, callerAvatar, sdp, callId } = data;
+    
+    // Сохраняем информацию о звонке
+    currentCallId = callId;
+    currentCallPeerId = callerId;
+    currentCallPeerName = callerUsername;
+    currentCallPeerAvatar = callerAvatar;
+    
+    // Запрашиваем микрофон
+    const hasMic = await getLocalStream();
+    if (!hasMic) {
+      // Отклоняем, если нет микрофона
+      socket.emit('webrtc-call-reject', {
+        targetUserId: callerId,
+        callId
+      });
+      return;
+    }
+    
+    // Создаём PeerConnection
+    peerConnection = new RTCPeerConnection(STUN_SERVERS);
+    
+    // Добавляем аудиотреки
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
+    
+    // Получаем удалённый поток
+    remoteStream = new MediaStream();
+    peerConnection.ontrack = (event) => {
+      event.streams[0].getTracks().forEach(track => {
+        remoteStream.addTrack(track);
+      });
+    };
+    
+    // ICE кандидаты
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit('webrtc-ice-candidate', {
+          targetUserId: callerId,
+          candidate: event.candidate,
+          callId
+        });
+      }
+    };
+    
+    // Устанавливаем удалённое описание
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+    
+    // Показываем модалку входящего звонка
+    incomingCallerAvatar.src = avatarOrDefault(callerAvatar);
+    incomingCallerName.innerText = callerUsername;
+    incomingCallModal.classList.remove('hidden');
+  });
+
+  socket.on('webrtc-answer', async (data) => {
+    const { callerId, sdp } = data;
+    
+    if (peerConnection && currentCallPeerId === callerId) {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+    }
+  });
+
+  socket.on('webrtc-ice-candidate', async (data) => {
+    const { callerId, candidate } = data;
+    
+    if (peerConnection && currentCallPeerId === callerId) {
+      try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error('Ошибка добавления ICE candidate:', err);
+      }
+    }
+  });
+
+  socket.on('webrtc-call-reject', (data) => {
+    if (data.callId === currentCallId) {
+      alert('❌ Пользователь отклонил звонок');
+      activeCallModal.classList.add('hidden');
+      incomingCallModal.classList.add('hidden');
+      cleanupCall();
+    }
+  });
+
+  socket.on('webrtc-call-end', (data) => {
+    if (data.callId === currentCallId) {
+      alert('🔴 Звонок завершён');
+      activeCallModal.classList.add('hidden');
+      incomingCallModal.classList.add('hidden');
+      cleanupCall();
+    }
+  });
+
+  socket.on('webrtc-toggle-mute', (data) => {
+    if (data.callId === currentCallId) {
+      // Показываем уведомление о статусе микрофона собеседника
+      const status = data.muted ? '🔇 выключил(а) микрофон' : '🎤 включил(а) микрофон';
+      // Можно показать небольшой уведомитель
+    }
+  });
+}
+
+function findChatElement(chatId) {
+  return chatsContainer.querySelector(`[data-chat-id="${chatId}"]`);
+}
+
+// ==================== ИНИЦИАЛИЗАЦИЯ ЗВОНКОВ ====================
+acceptCallBtn?.addEventListener('click', acceptCall);
+rejectCallBtn?.addEventListener('click', rejectCall);
+endCallBtn?.addEventListener('click', endCall);
+muteMicBtn?.addEventListener('click', toggleMute);
 
 // ==================== КОПИРОВАТЬ ССЫЛКУ ====================
 const copyProfileLinkBtn = document.getElementById('copyProfileLinkBtn');
@@ -593,6 +940,11 @@ async function afterAuth() {
 }
 
 function logout() {
+  // Завершаем активный звонок, если есть
+  if (currentCallId) {
+    endCall();
+  }
+  
   token = null;
   currentUser = null;
   activeChatId = null;
