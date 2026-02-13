@@ -330,32 +330,35 @@ io.on("connection", socket => {
   socket.on("join chat", chatId => socket.join(chatId));
 
   socket.on("chat message", data => {
-    const { chatId, text } = data;
-    const db2 = readDB();
-    const chat = db2.chats.find(c => c.id === chatId);
-    if (!chat) return;
-    const user = db2.users.find(u => u.id === userId);
-    if (!user) return;
-    const message = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-      chatId,
-      userId,
-      name: user.username,
-      avatar: user.avatar,
-      text: text.trim(),
-      ts: Date.now()
-    };
-    db2.messages.push(message);
-    chat.members.forEach(mid => { if (mid !== userId) chat.unread[mid] = (chat.unread[mid] || 0) + 1; });
-    writeDB(db2);
-    io.to(chatId).emit("chat message", message);
-    chat.members.forEach(mid => {
-      if (mid !== userId) {
-        const socketsFor = activeSockets[mid] || [];
-        socketsFor.forEach(sid => io.to(sid).emit("unread update", { chatId, unread: chat.unread[mid] }));
-      }
-    });
+  const { chatId, text, replyTo } = data; // 👈 добавили replyTo
+  const db2 = readDB();
+  const chat = db2.chats.find(c => c.id === chatId);
+  if (!chat) return;
+  const user = db2.users.find(u => u.id === userId);
+  if (!user) return;
+  const message = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+    chatId,
+    userId,
+    name: user.username,
+    avatar: user.avatar,
+    text: text.trim(),
+    ts: Date.now()
+  };
+  if (replyTo) {
+    message.replyTo = replyTo; // 👈 сохраняем информацию об ответе
+  }
+  db2.messages.push(message);
+  chat.members.forEach(mid => { if (mid !== userId) chat.unread[mid] = (chat.unread[mid] || 0) + 1; });
+  writeDB(db2);
+  io.to(chatId).emit("chat message", message);
+  chat.members.forEach(mid => {
+    if (mid !== userId) {
+      const socketsFor = activeSockets[mid] || [];
+      socketsFor.forEach(sid => io.to(sid).emit("unread update", { chatId, unread: chat.unread[mid] }));
+    }
   });
+});
 
   socket.on("disconnect", () => {
     if (activeSockets[userId]) {
