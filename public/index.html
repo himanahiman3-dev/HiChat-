@@ -115,43 +115,42 @@
     </div>
   </div>
 
+  <!-- ========== МОДАЛЬНОЕ ОКНО ВХОДЯЩЕГО ЗВОНКА ========== -->
+  <div id="incomingCallModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+      <div style="margin-bottom: 20px;">
+        <img id="incomingCallerAvatar" class="avatar-large" src="/default-avatar.png" alt="" style="width: 80px; height: 80px; margin-bottom: 12px;">
+        <h2 id="incomingCallerName" style="margin-bottom: 8px;">Пользователь</h2>
+        <p style="opacity: 0.7; margin-bottom: 24px;">🔔 Входящий аудиозвонок...</p>
+      </div>
+      <div style="display: flex; gap: 20px; justify-content: center;">
+        <button id="acceptCallBtn" class="btn-gradient" style="background: linear-gradient(90deg, #00e676, #00b248); width: 80px; height: 80px; border-radius: 50%; font-size: 32px; padding: 0;">✓</button>
+        <button id="rejectCallBtn" class="btn-gradient" style="background: linear-gradient(90deg, #ff5252, #d32f2f); width: 80px; height: 80px; border-radius: 50%; font-size: 32px; padding: 0;">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== МОДАЛЬНОЕ ОКНО АКТИВНОГО ЗВОНКА ========== -->
+  <div id="activeCallModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+      <div style="margin-bottom: 24px;">
+        <img id="activeCallAvatar" class="avatar-large" src="/default-avatar.png" alt="" style="width: 100px; height: 100px; margin-bottom: 16px;">
+        <h2 id="activeCallName" style="margin-bottom: 8px;">Пользователь</h2>
+        <p id="callTimer" style="font-size: 24px; font-weight: 700; color: #00e0ff; margin-bottom: 8px;">00:00</p>
+        <p style="opacity: 0.7;">🔵 В разговоре...</p>
+      </div>
+      <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 16px;">
+        <button id="muteMicBtn" class="btn-icon" style="background: rgba(255,255,255,0.05); width: 64px; height: 64px; border-radius: 50%; font-size: 24px; border: 1px solid rgba(255,255,255,0.1);">🎤</button>
+        <button id="endCallBtn" class="btn-icon" style="background: linear-gradient(90deg, #ff5252, #d32f2f); width: 64px; height: 64px; border-radius: 50%; font-size: 24px; color: white;">📴</button>
+      </div>
+      <div style="display: flex; justify-content: center;">
+        <span id="muteStatus" style="font-size: 14px; opacity: 0.7;">Микрофон включён</span>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== ПОДКЛЮЧЕНИЕ СКРИПТОВ ========== -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
-
-  <!-- ========== МОДАЛЬНОЕ ОКНО ВХОДЯЩЕГО ЗВОНКА ========== -->
-<div id="incomingCallModal" class="modal hidden">
-  <div class="modal-content" style="max-width: 400px; text-align: center;">
-    <div style="margin-bottom: 20px;">
-      <img id="incomingCallerAvatar" class="avatar-large" src="/default-avatar.png" alt="" style="width: 80px; height: 80px; margin-bottom: 12px;">
-      <h2 id="incomingCallerName" style="margin-bottom: 8px;">Пользователь</h2>
-      <p style="opacity: 0.7; margin-bottom: 24px;">🔔 Входящий аудиозвонок...</p>
-    </div>
-    <div style="display: flex; gap: 20px; justify-content: center;">
-      <button id="acceptCallBtn" class="btn-gradient" style="background: linear-gradient(90deg, #00e676, #00b248); width: 80px; height: 80px; border-radius: 50%; font-size: 32px; padding: 0;">✓</button>
-      <button id="rejectCallBtn" class="btn-gradient" style="background: linear-gradient(90deg, #ff5252, #d32f2f); width: 80px; height: 80px; border-radius: 50%; font-size: 32px; padding: 0;">✕</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== МОДАЛЬНОЕ ОКНО АКТИВНОГО ЗВОНКА ========== -->
-<div id="activeCallModal" class="modal hidden">
-  <div class="modal-content" style="max-width: 400px; text-align: center;">
-    <div style="margin-bottom: 24px;">
-      <img id="activeCallAvatar" class="avatar-large" src="/default-avatar.png" alt="" style="width: 100px; height: 100px; margin-bottom: 16px;">
-      <h2 id="activeCallName" style="margin-bottom: 8px;">Пользователь</h2>
-      <p id="callTimer" style="font-size: 24px; font-weight: 700; color: #00e0ff; margin-bottom: 8px;">00:00</p>
-      <p style="opacity: 0.7;">🔵 В разговоре...</p>
-    </div>
-    <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 16px;">
-      <button id="muteMicBtn" class="btn-icon" style="background: rgba(255,255,255,0.05); width: 64px; height: 64px; border-radius: 50%; font-size: 24px; border: 1px solid rgba(255,255,255,0.1);">🎤</button>
-      <button id="endCallBtn" class="btn-icon" style="background: linear-gradient(90deg, #ff5252, #d32f2f); width: 64px; height: 64px; border-radius: 50%; font-size: 24px; color: white;">📴</button>
-    </div>
-    <div style="display: flex; justify-content: center;">
-      <span id="muteStatus" style="font-size: 14px; opacity: 0.7;">Микрофон включён</span>
-    </div>
-  </div>
-</div>
 </body>
 </html>
-
