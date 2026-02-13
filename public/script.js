@@ -1,4 +1,4 @@
-// ==================== HiChat — клиентская логика (финальная версия) ====================
+// ==================== HiChat — клиент (ответы, поиск, дата-разделители) ====================
 let token = localStorage.getItem('hichat_token') || null;
 let currentUser = null;
 let socket = null;
@@ -36,13 +36,20 @@ const settingsPreviewImg = settingsAvatarPreview?.querySelector('img');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const settingsError = document.getElementById('settingsError');
 
-// ---------- Модалка просмотра профиля ----------
+// ---------- Модалка профиля ----------
 const profileModal = document.getElementById('profileModal');
 const profileAvatar = document.getElementById('profileAvatar');
 const profileUsername = document.getElementById('profileUsername');
 const profileBio = document.getElementById('profileBio');
 const profileOnline = document.getElementById('profileOnline');
 const closeProfileBtn = document.getElementById('closeProfileBtn');
+
+// ---------- ПОИСК (NEW) ----------
+const searchToggleBtn = document.getElementById('searchToggleBtn');
+const searchInput = document.getElementById('searchInput');
+
+// ---------- ОТВЕТЫ (NEW) ----------
+let replyingTo = null; // { id, text, username }
 
 // ==================== УТИЛИТЫ ====================
 function escapeHtml(s) {
@@ -97,7 +104,6 @@ function renderChatItem(chat) {
   el.appendChild(meta);
   el.appendChild(right);
 
-  // 👇 УЛУЧШЕННЫЙ КЛИК: открываем профиль при клике на аватар или имя, иначе открываем чат
   el.addEventListener('click', (e) => {
     if (e.target.closest('.chat-item .meta') || e.target.closest('.avatar-small')) {
       openProfile(chat.otherUser.id);
@@ -145,18 +151,54 @@ async function openChat(chatId, otherUser) {
   const r = await fetch(`/chats/${chatId}/messages`, { headers: { Authorization: 'Bearer ' + token } });
   if (r.ok) {
     const msgs = await r.json();
-    messagesEl.innerHTML = '';
-    msgs.forEach(renderMessage);
-    await loadChats(); // обновить непрочитанные
+    // NEW: отрисовываем с дата-разделителями
+    renderMessagesWithDividers(msgs);
+    await loadChats();
   } else {
     messagesEl.innerHTML = '';
   }
+  
+  // NEW: сброс ответа и поиска при открытии нового чата
+  cancelReply();
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.classList.add('hidden');
+    clearSearchHighlight();
+  }
 }
 
-// ==================== ОТРИСОВКА СООБЩЕНИЯ ====================
+// ==================== ОТРИСОВКА СООБЩЕНИЙ (С ДАТАМИ И ОТВЕТАМИ) ====================
+// NEW: группировка по дням
+function renderMessagesWithDividers(msgs) {
+  messagesEl.innerHTML = '';
+  if (!msgs.length) return;
+
+  let lastDate = null;
+  msgs.sort((a, b) => a.ts - b.ts).forEach(msg => {
+    const msgDate = new Date(msg.ts).toDateString();
+    if (msgDate !== lastDate) {
+      lastDate = msgDate;
+      const divider = document.createElement('div');
+      divider.className = 'date-divider';
+      
+      let dateText = new Date(msg.ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+      // Замена "г." на пустоту, если нужно
+      dateText = dateText.replace(' г.', '');
+      
+      const span = document.createElement('span');
+      span.innerText = dateText;
+      divider.appendChild(span);
+      messagesEl.appendChild(divider);
+    }
+    renderMessage(msg);
+  });
+}
+
+// NEW: отрисовка одного сообщения с кнопкой ответа и цитатой
 function renderMessage(msg) {
   const wrapper = document.createElement('div');
   wrapper.className = 'message';
+  wrapper.dataset.messageId = msg.id;
 
   const avatar = document.createElement('img');
   avatar.className = 'avatar-small';
@@ -166,10 +208,21 @@ function renderMessage(msg) {
   const body = document.createElement('div');
   body.className = 'msg-body';
 
+  // ----- ЦИТАТА (если это ответ) -----
+  if (msg.replyTo) {
+    const replyBlock = document.createElement('div');
+    replyBlock.className = 'message-reply';
+    replyBlock.innerHTML = `
+      <span class="reply-author">@${escapeHtml(msg.replyTo.username || 'пользователь')}</span>
+      <span class="reply-text">${escapeHtml(msg.replyTo.text.slice(0, 50))}${msg.replyTo.text.length > 50 ? '…' : ''}</span>
+    `;
+    body.appendChild(replyBlock);
+  }
+
   const header = document.createElement('div');
   header.className = 'msg-header';
   header.innerHTML = `<span>${escapeHtml(msg.name || 'Unknown')}</span>
-                      <small style="opacity:.6;margin-left:8px;font-size:12px">${new Date(msg.ts).toLocaleTimeString()}</small>`;
+                      <small style="opacity:.6;margin-left:8px;font-size:12px">${new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>`;
 
   const text = document.createElement('div');
   text.className = 'msg-text';
@@ -178,36 +231,136 @@ function renderMessage(msg) {
   body.appendChild(header);
   body.appendChild(text);
 
+  // ----- КНОПКА ОТВЕТА -----
+  const replyBtn = document.createElement('button');
+  replyBtn.className = 'reply-btn';
+  replyBtn.innerHTML = '↩️';
+  replyBtn.title = 'Ответить';
+  replyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Устанавливаем цитируемое сообщение
+    replyingTo = {
+      id: msg.id,
+      text: msg.text,
+      username: msg.name,
+      userId: msg.userId
+    };
+    // Показываем блок с ответом над полем ввода
+    showReplyPreview(replyingTo);
+  });
+  header.appendChild(replyBtn);
+
   wrapper.appendChild(avatar);
   wrapper.appendChild(body);
 
   messagesEl.appendChild(wrapper);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function findChatElement(chatId) {
-  return chatsContainer.querySelector(`[data-chat-id="${chatId}"]`);
+// NEW: показать панель ответа над полем ввода
+function showReplyPreview(reply) {
+  // Удаляем старый превью, если есть
+  const oldPreview = document.querySelector('.reply-preview');
+  if (oldPreview) oldPreview.remove();
+
+  const preview = document.createElement('div');
+  preview.className = 'reply-preview';
+  preview.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 16px;">↩️</span>
+      <div>
+        <span>@${escapeHtml(reply.username)}</span>
+        <span style="opacity:0.7; margin-left: 6px;">${escapeHtml(reply.text.slice(0, 40))}${reply.text.length > 40 ? '…' : ''}</span>
+      </div>
+    </div>
+    <button id="cancelReplyBtn" title="Отмена">✕</button>
+  `;
+  
+  const inputArea = document.querySelector('.input-area');
+  inputArea.parentNode.insertBefore(preview, inputArea);
+  
+  document.getElementById('cancelReplyBtn').addEventListener('click', cancelReply);
 }
 
-// ==================== ПРОСМОТР ПРОФИЛЯ ====================
-function openProfile(userId) {
-  fetch(`/users/${userId}`, {
-    headers: { Authorization: 'Bearer ' + token }
-  })
-    .then(res => res.json())
-    .then(user => {
-      profileAvatar.src = avatarOrDefault(user.avatar);
-      profileUsername.innerText = user.username;
-      profileBio.innerText = user.bio || 'Пользователь пока ничего не написал о себе.';
-      profileOnline.innerText = user.online ? '● В сети' : '○ Не в сети';
-      profileOnline.className = 'online-status ' + (user.online ? 'online' : 'offline');
-      profileModal.classList.remove('hidden');
-    })
-    .catch(err => {
-      console.error('Ошибка загрузки профиля:', err);
-      alert('Не удалось загрузить профиль');
-    });
+// NEW: отмена ответа
+function cancelReply() {
+  replyingTo = null;
+  const preview = document.querySelector('.reply-preview');
+  if (preview) preview.remove();
 }
+
+// ==================== ПОИСК ПО СООБЩЕНИЯМ (NEW) ====================
+let searchActive = false;
+
+searchToggleBtn?.addEventListener('click', () => {
+  searchInput.classList.toggle('hidden');
+  if (!searchInput.classList.contains('hidden')) {
+    searchInput.focus();
+  } else {
+    clearSearchHighlight();
+  }
+});
+
+searchInput?.addEventListener('input', function(e) {
+  const query = e.target.value.trim().toLowerCase();
+  if (!query) {
+    clearSearchHighlight();
+    return;
+  }
+
+  const messages = document.querySelectorAll('.message');
+  let firstMatch = null;
+  
+  messages.forEach(msg => {
+    const textEl = msg.querySelector('.msg-text');
+    if (!textEl) return;
+    const text = textEl.innerText.toLowerCase();
+    if (text.includes(query)) {
+      msg.classList.add('highlight');
+      if (!firstMatch) firstMatch = msg;
+    } else {
+      msg.classList.remove('highlight');
+    }
+  });
+
+  // Прокрутка к первому совпадению
+  if (firstMatch) {
+    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+});
+
+function clearSearchHighlight() {
+  document.querySelectorAll('.message.highlight').forEach(el => el.classList.remove('highlight'));
+}
+
+// ==================== ОТПРАВКА СООБЩЕНИЯ (с поддержкой ответов) ====================
+sendBtn?.addEventListener('click', () => {
+  const text = messageInput.value.trim();
+  if (!text || !activeChatId) return;
+  if (!socket || !socket.connected) { alert('Нет подключения. Обновите страницу.'); return; }
+  
+  const messageData = { chatId: activeChatId, text };
+  // Добавляем информацию об ответе, если есть
+  if (replyingTo) {
+    messageData.replyTo = {
+      id: replyingTo.id,
+      text: replyingTo.text,
+      username: replyingTo.username,
+      userId: replyingTo.userId
+    };
+  }
+  
+  socket.emit('chat message', messageData);
+  messageInput.value = '';
+  // Сбрасываем ответ после отправки
+  cancelReply();
+});
+
+messageInput?.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendBtn.click();
+  }
+});
 
 // ==================== SOCKET.IO ====================
 function connectSocket() {
@@ -236,7 +389,11 @@ function connectSocket() {
 
   socket.on('chat message', msg => {
     if (msg.chatId === activeChatId) {
-      renderMessage(msg);
+      // Добавляем одно сообщение с дата-разделителем, если нужно
+      // Просто перерисуем все сообщения заново, чтобы корректно обновить даты
+      fetch(`/chats/${activeChatId}/messages`, { headers: { Authorization: 'Bearer ' + token } })
+        .then(res => res.json())
+        .then(msgs => renderMessagesWithDividers(msgs));
       loadChats();
     } else {
       loadChats();
@@ -281,19 +438,6 @@ function connectSocket() {
   });
 }
 
-// ==================== ОТПРАВКА СООБЩЕНИЯ ====================
-sendBtn?.addEventListener('click', () => {
-  const text = messageInput.value.trim();
-  if (!text || !activeChatId) return;
-  if (!socket || !socket.connected) { alert('Нет подключения. Обновите страницу.'); return; }
-  socket.emit('chat message', { chatId: activeChatId, text });
-  messageInput.value = '';
-});
-
-messageInput?.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); }
-});
-
 // ==================== НАЧАТЬ НОВЫЙ ЧАТ ====================
 startChatBtn?.addEventListener('click', async () => {
   const uname = newChatUsername.value.trim();
@@ -325,7 +469,6 @@ settingsBtn?.addEventListener('click', () => {
   settingsModal.classList.remove('hidden');
 });
 
-// Предпросмотр аватара в настройках
 settingsAvatar?.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (file) {
@@ -342,12 +485,10 @@ settingsAvatar?.addEventListener('change', function(e) {
   }
 });
 
-// Закрыть настройки
 closeSettingsBtn?.addEventListener('click', () => {
   settingsModal.classList.add('hidden');
 });
 
-// Сохранить настройки
 settingsForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   settingsError.innerText = '';
@@ -372,13 +513,10 @@ settingsForm?.addEventListener('submit', async (e) => {
       settingsError.innerText = data.error || 'Ошибка сохранения';
       return;
     }
-    // Обновляем локальные данные
     currentUser = { ...currentUser, ...data };
     myName.innerText = currentUser.username;
     myAvatar.src = avatarOrDefault(currentUser.avatar);
-    // Закрываем модалку
     settingsModal.classList.add('hidden');
-    // Обновляем список чатов (новое имя и аватар)
     loadChats();
   } catch (err) {
     settingsError.innerText = 'Ошибка сети';
@@ -386,16 +524,49 @@ settingsForm?.addEventListener('submit', async (e) => {
   }
 });
 
-// ==================== ПРОСМОТР ПРОФИЛЯ (закрытие) ====================
+// ==================== ПРОСМОТР ПРОФИЛЯ ====================
+function openProfile(userId) {
+  fetch(`/users/${userId}`, {
+    headers: { Authorization: 'Bearer ' + token }
+  })
+    .then(res => res.json())
+    .then(user => {
+      profileAvatar.src = avatarOrDefault(user.avatar);
+      profileUsername.innerText = user.username;
+      profileBio.innerText = user.bio || 'Пользователь пока ничего не написал о себе.';
+      profileOnline.innerText = user.online ? '● В сети' : '○ Не в сети';
+      profileOnline.className = 'online-status ' + (user.online ? 'online' : 'offline');
+      profileModal.classList.remove('hidden');
+    })
+    .catch(err => {
+      console.error('Ошибка загрузки профиля:', err);
+      alert('Не удалось загрузить профиль');
+    });
+}
+
 closeProfileBtn?.addEventListener('click', () => {
   profileModal.classList.add('hidden');
 });
 
-// Клик по имени в шапке чата — открыть профиль собеседника
 chatName?.addEventListener('click', () => {
   if (activeChatOther) {
     openProfile(activeChatOther.id);
   }
+});
+
+// ==================== КОПИРОВАТЬ ССЫЛКУ ====================
+const copyProfileLinkBtn = document.getElementById('copyProfileLinkBtn');
+const copyLinkMessage = document.getElementById('copyLinkMessage');
+
+copyProfileLinkBtn?.addEventListener('click', () => {
+  if (!currentUser) return;
+  const link = `${window.location.origin}/u/${currentUser.username}`;
+  navigator.clipboard.writeText(link).then(() => {
+    copyLinkMessage.innerText = '✅ Ссылка скопирована!';
+    setTimeout(() => { copyLinkMessage.innerText = ''; }, 2000);
+  }).catch(() => {
+    copyLinkMessage.innerText = '❌ Ошибка копирования';
+  });
 });
 
 // ==================== ВЫХОД ====================
@@ -408,7 +579,6 @@ logo?.addEventListener('click', () => {
   logoutBtn?.classList.toggle('visible');
 });
 
-// ==================== ПОСЛЕ АВТОРИЗАЦИИ ====================
 async function afterAuth() {
   const r = await fetch('/me', { headers: { Authorization: 'Bearer ' + token } });
   if (!r.ok) { logout(); return; }
@@ -439,7 +609,7 @@ function logout() {
   }
   const r = await fetch('/me', { headers: { Authorization: 'Bearer ' + token } });
   if (!r.ok) {
-    logout(); // редирект на auth.html
+    logout();
     return;
   }
   currentUser = await r.json();
