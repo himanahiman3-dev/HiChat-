@@ -612,3 +612,97 @@ small { font-size:12px; color:#bfeefc; opacity:0.7 }
 .profile-bio {
   line-height: 1.5;
 }
+
+/* ====== ОТВЕТЫ (ЦИТАТЫ) ====== */
+.message-reply {
+  background: rgba(255,255,255,0.03);
+  border-left: 3px solid rgba(0,224,255,0.5);
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.6);
+}
+.message-reply .reply-author {
+  font-weight: 700;
+  color: #00e0ff;
+  margin-right: 6px;
+}
+.message-reply .reply-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ====== КНОПКА ОТВЕТА ====== */
+.reply-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 12px;
+  transition: 0.1s;
+  margin-left: 8px;
+}
+.reply-btn:hover {
+  background: rgba(255,255,255,0.05);
+  color: white;
+}
+
+/* ====== РАЗДЕЛИТЕЛЬ ДАТЫ ====== */
+.date-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0 12px;
+  color: rgba(255,255,255,0.3);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.date-divider::before,
+.date-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.date-divider span {
+  padding: 0 12px;
+}
+
+/* ====== ПОДСВЕТКА ПОИСКА ====== */
+.message.highlight {
+  background: rgba(0,224,255,0.08);
+  border-left: 3px solid #00e0ff;
+}
+
+/* ====== БЛОК ОТВЕТА НАД ПОЛЕМ ВВОДА ====== */
+.reply-preview {
+  background: rgba(0,224,255,0.05);
+  border-left: 4px solid #00e0ff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+}
+.reply-preview span {
+  font-weight: 700;
+  color: #00e0ff;
+}
+#cancelReplyBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 6px;
+}
+#cancelReplyBtn:hover {
+  color: white;
+}
