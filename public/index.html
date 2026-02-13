@@ -152,5 +152,20 @@
   <!-- ========== ПОДКЛЮЧЕНИЕ СКРИПТОВ ========== -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
+
+    <!-- ========== МОДАЛЬНОЕ ОКНО ИСХОДЯЩЕГО ЗВОНКА ========== -->
+  <div id="outgoingCallModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+      <div style="margin-bottom: 20px;">
+        <img id="outgoingCallerAvatar" class="avatar-large" src="/default-avatar.png" alt="" style="width: 80px; height: 80px; margin-bottom: 12px;">
+        <h2 id="outgoingCallerName" style="margin-bottom: 8px;">Пользователь</h2>
+        <p style="opacity: 0.7; margin-bottom: 24px;">📞 Звонок... Ожидание ответа</p>
+      </div>
+      <div style="display: flex; gap: 20px; justify-content: center;">
+        <button id="cancelCallBtn" class="btn-gradient" style="background: linear-gradient(90deg, #ff5252, #d32f2f); width: 80px; height: 80px; border-radius: 50%; font-size: 32px; padding: 0;">✕</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
+
