@@ -742,3 +742,14 @@ small { font-size:12px; color:#bfeefc; opacity:0.7 }
   transform: translateY(-2px);
   box-shadow: 0 10px 30px rgba(0,224,255,0.3);
 }
+
+/* ====== СТИЛИ ДЛЯ МОДАЛКИ ИСХОДЯЩЕГО ЗВОНКА ====== */
+#outgoingCallModal .modal-content {
+  animation: fadeIn 0.3s ease;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+#cancelCallBtn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 30px rgba(255,82,82,0.3);
+}
