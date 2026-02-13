@@ -1,4 +1,4 @@
-// ==================== HiChat — ФИНАЛ: ЧАТЫ + ЗВОНКИ ====================
+// ==================== HiChat — ФИНАЛ: ЧАТЫ + ЗВОНКИ (ИСПРАВЛЕНО) ====================
 let token = localStorage.getItem('hichat_token') || null;
 let currentUser = null;
 let socket = null;
@@ -17,8 +17,9 @@ let currentCallPeerAvatar = "";
 let callTimer = null;
 let callSeconds = 0;
 let isMuted = false;
+let ringtoneAudio = null; // для гудков
 
-// DOM элементы (сохраняем все твои старые + добавляем новые для звонков)
+// DOM элементы (сохраняем все старые + добавляем новые для звонков)
 const messagesEl = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
@@ -56,12 +57,17 @@ const profileBio = document.getElementById('profileBio');
 const profileOnline = document.getElementById('profileOnline');
 const closeProfileBtn = document.getElementById('closeProfileBtn');
 
-// ---------- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ЗВОНКОВ ----------
+// ---------- ЭЛЕМЕНТЫ ДЛЯ ЗВОНКОВ ----------
 const incomingCallModal = document.getElementById('incomingCallModal');
 const incomingCallerAvatar = document.getElementById('incomingCallerAvatar');
 const incomingCallerName = document.getElementById('incomingCallerName');
 const acceptCallBtn = document.getElementById('acceptCallBtn');
 const rejectCallBtn = document.getElementById('rejectCallBtn');
+
+const outgoingCallModal = document.getElementById('outgoingCallModal');
+const outgoingCallerAvatar = document.getElementById('outgoingCallerAvatar');
+const outgoingCallerName = document.getElementById('outgoingCallerName');
+const cancelCallBtn = document.getElementById('cancelCallBtn');
 
 const activeCallModal = document.getElementById('activeCallModal');
 const activeCallAvatar = document.getElementById('activeCallAvatar');
@@ -587,8 +593,13 @@ async function startCall(targetUserId, targetUsername, targetAvatar) {
       callId: currentCallId
     });
     
-    // Показываем окно активного звонка
-    showActiveCallModal(targetUsername, targetAvatar);
+    // Показываем окно ИСХОДЯЩЕГО звонка (Ожидание ответа)
+    outgoingCallerAvatar.src = avatarOrDefault(targetAvatar);
+    outgoingCallerName.innerText = targetUsername;
+    outgoingCallModal.classList.remove('hidden');
+    
+    // 🎵 Запускаем гудки (циклично)
+    playRingtone();
     
   } catch (err) {
     console.error('Ошибка создания звонка:', err);
@@ -614,6 +625,9 @@ async function acceptCall() {
     // Скрываем модалку входящего звонка
     incomingCallModal.classList.add('hidden');
     
+    // 🎵 Останавливаем гудки
+    stopRingtone();
+    
     // Показываем активный звонок
     showActiveCallModal(currentCallPeerName, currentCallPeerAvatar);
     
@@ -630,6 +644,19 @@ function rejectCall() {
   });
   
   incomingCallModal.classList.add('hidden');
+  stopRingtone();
+  cleanupCall();
+}
+
+// Отменить исходящий звонок
+function cancelCall() {
+  socket.emit('webrtc-call-reject', {
+    targetUserId: currentCallPeerId,
+    callId: currentCallId
+  });
+  
+  outgoingCallModal.classList.add('hidden');
+  stopRingtone();
   cleanupCall();
 }
 
@@ -641,6 +668,9 @@ function endCall() {
   });
   
   activeCallModal.classList.add('hidden');
+  outgoingCallModal.classList.add('hidden');
+  incomingCallModal.classList.add('hidden');
+  stopRingtone();
   cleanupCall();
 }
 
@@ -664,6 +694,8 @@ function cleanupCall() {
   remoteStream = null;
   currentCallId = null;
   currentCallPeerId = null;
+  currentCallPeerName = "";
+  currentCallPeerAvatar = "";
 }
 
 // Показать окно активного звонка
@@ -711,6 +743,23 @@ function toggleMute() {
       muted: isMuted,
       callId: currentCallId
     });
+  }
+}
+
+// 🎵 ГУДКИ
+function playRingtone() {
+  if (!ringtoneAudio) {
+    ringtoneAudio = new Audio('/zvonok.mp3');
+    ringtoneAudio.loop = true;
+    ringtoneAudio.volume = 0.7;
+  }
+  ringtoneAudio.play().catch(e => console.log('Не удалось воспроизвести гудки:', e));
+}
+
+function stopRingtone() {
+  if (ringtoneAudio) {
+    ringtoneAudio.pause();
+    ringtoneAudio.currentTime = 0;
   }
 }
 
@@ -791,6 +840,17 @@ function connectSocket() {
   socket.on('webrtc-offer', async (data) => {
     const { callerId, callerUsername, callerAvatar, sdp, callId } = data;
     
+    console.log('📞 Входящий звонок от', callerUsername);
+    
+    // Если уже есть активный звонок, отклоняем
+    if (currentCallId) {
+      socket.emit('webrtc-call-reject', {
+        targetUserId: callerId,
+        callId
+      });
+      return;
+    }
+    
     // Сохраняем информацию о звонке
     currentCallId = callId;
     currentCallPeerId = callerId;
@@ -842,6 +902,9 @@ function connectSocket() {
     incomingCallerAvatar.src = avatarOrDefault(callerAvatar);
     incomingCallerName.innerText = callerUsername;
     incomingCallModal.classList.remove('hidden');
+    
+    // 🎵 Запускаем гудки
+    playRingtone();
   });
 
   socket.on('webrtc-answer', async (data) => {
@@ -849,6 +912,15 @@ function connectSocket() {
     
     if (peerConnection && currentCallPeerId === callerId) {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+      
+      // Скрываем исходящий звонок
+      outgoingCallModal.classList.add('hidden');
+      
+      // 🎵 Останавливаем гудки
+      stopRingtone();
+      
+      // Показываем активный звонок
+      showActiveCallModal(currentCallPeerName, currentCallPeerAvatar);
     }
   });
 
@@ -867,8 +939,9 @@ function connectSocket() {
   socket.on('webrtc-call-reject', (data) => {
     if (data.callId === currentCallId) {
       alert('❌ Пользователь отклонил звонок');
-      activeCallModal.classList.add('hidden');
+      outgoingCallModal.classList.add('hidden');
       incomingCallModal.classList.add('hidden');
+      stopRingtone();
       cleanupCall();
     }
   });
@@ -876,17 +949,18 @@ function connectSocket() {
   socket.on('webrtc-call-end', (data) => {
     if (data.callId === currentCallId) {
       alert('🔴 Звонок завершён');
-      activeCallModal.classList.add('hidden');
+      outgoingCallModal.classList.add('hidden');
       incomingCallModal.classList.add('hidden');
+      activeCallModal.classList.add('hidden');
+      stopRingtone();
       cleanupCall();
     }
   });
 
   socket.on('webrtc-toggle-mute', (data) => {
     if (data.callId === currentCallId) {
-      // Показываем уведомление о статусе микрофона собеседника
-      const status = data.muted ? '🔇 выключил(а) микрофон' : '🎤 включил(а) микрофон';
-      // Можно показать небольшой уведомитель
+      // Можно показать уведомление, но для простоты игнорируем
+      console.log(`Собеседник ${data.muted ? 'выключил' : 'включил'} микрофон`);
     }
   });
 }
@@ -898,6 +972,7 @@ function findChatElement(chatId) {
 // ==================== ИНИЦИАЛИЗАЦИЯ ЗВОНКОВ ====================
 acceptCallBtn?.addEventListener('click', acceptCall);
 rejectCallBtn?.addEventListener('click', rejectCall);
+cancelCallBtn?.addEventListener('click', cancelCall);
 endCallBtn?.addEventListener('click', endCall);
 muteMicBtn?.addEventListener('click', toggleMute);
 
